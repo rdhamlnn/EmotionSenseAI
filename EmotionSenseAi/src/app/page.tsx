@@ -13,7 +13,7 @@ export default function RootPage() {
     if (user) {
       router.replace(user.role === "pembimbing" ? "/pembimbing" : "/dashboard");
     } else {
-      router.replace("/login");
+      router.replace("/beranda");
     }
   }, [router]);
 
