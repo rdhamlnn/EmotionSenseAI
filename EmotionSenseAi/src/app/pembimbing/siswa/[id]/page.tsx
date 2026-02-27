@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,23 +28,8 @@ import {
     type FilterPeriod,
 } from "@/lib/mock-data";
 import type { User, DiaryEntry, PembimbingNote, Message, AlertLevel } from "@/lib/types";
+import { EMOTION_COLORS, BADGE_COLORS, formatDate } from "@/lib/constants";
 import { toast } from "sonner";
-
-const EMOTION_COLORS: Record<string, string> = {
-    Happy: "hsl(175, 45%, 40%)",
-    Sad: "hsl(220, 60%, 45%)",
-    Angry: "hsl(0, 65%, 55%)",
-    Fear: "hsl(280, 40%, 50%)",
-    Neutral: "hsl(220, 15%, 55%)",
-};
-
-const BADGE_COLORS: Record<string, string> = {
-    Happy: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    Sad: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    Angry: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    Fear: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-    Neutral: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
-};
 
 const ALERT_CONFIG: Record<AlertLevel, { label: string; bgColor: string; icon: React.ElementType }> = {
     safe: { label: "Aman", bgColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", icon: ShieldCheck },
@@ -59,14 +44,6 @@ const tabs = [
     { id: "laporan", label: "Laporan", icon: FileText },
 ];
 
-const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("id-ID", {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-    });
-};
-
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
     const router = useRouter();
@@ -78,12 +55,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const [messages, setMessages] = useState<Message[]>([]);
     const [trendPeriod, setTrendPeriod] = useState<FilterPeriod>("weekly");
     const [status, setStatus] = useState<import("@/lib/types").SiswaStatus | null>(null);
+    const [notFound, setNotFound] = useState(false);
 
     // Form states
     const [noteText, setNoteText] = useState("");
     const [msgText, setMsgText] = useState("");
     const [savingNote, setSavingNote] = useState(false);
     const [sendingMsg, setSendingMsg] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const currentUser = getCurrentUser();
@@ -109,10 +88,16 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                 await markMessagesRead(found.id, "pembimbing");
                 const statusData = await getSiswaStatus(found.id);
                 setStatus(statusData);
+            } else {
+                setNotFound(true);
             }
         };
         loadData();
     }, [router, resolvedParams.id]);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     const handleSaveNote = async () => {
         if (!noteText.trim() || !user || !patient) return;
@@ -148,18 +133,23 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
     const handleMarkSafe = async () => {
         if (!user || !patient) return;
-        await markSiswaSafe(user.id, patient.id);
-        toast.success("Status siswa berhasil ditandai sebagai Aman.");
-        const [updated, updatedStatus] = await Promise.all([
-            getDiaryEntries(patient.id),
-            getSiswaStatus(patient.id),
-        ]);
-        setEntries(updated);
-        setStatus(updatedStatus);
+        try {
+            await markSiswaSafe(user.id, patient.id);
+            toast.success("Status siswa berhasil ditandai sebagai Aman.");
+            const [updated, updatedStatus] = await Promise.all([
+                getDiaryEntries(patient.id),
+                getSiswaStatus(patient.id),
+            ]);
+            setEntries(updated);
+            setStatus(updatedStatus);
+        } catch {
+            toast.error("Gagal menandai siswa sebagai aman");
+        }
     };
 
     const handleGenerateReport = async () => {
         if (!patient) return;
+        try {
         const { jsPDF } = await import("jspdf");
         const status = await getSiswaStatus(patient.id);
         const filtered = filterEntriesByPeriod(entries, trendPeriod);
@@ -411,9 +401,26 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
         doc.save(`Laporan_${patient.nama.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
         toast.success("Laporan PDF berhasil di-download!");
+        } catch {
+            toast.error("Gagal membuat laporan PDF");
+        }
     };
 
-    if (!user || !patient || !status) return null;
+    if (notFound) return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+            <AlertTriangle className="h-12 w-12 text-amber-500" />
+            <p className="text-lg text-muted-foreground">Siswa tidak ditemukan atau Anda tidak memiliki akses.</p>
+            <Button variant="outline" onClick={() => router.push("/pembimbing")}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
+            </Button>
+        </div>
+    );
+
+    if (!user || !patient || !status) return (
+        <div className="flex min-h-[60vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
 
     const alertConfig = ALERT_CONFIG[status.alertLevel];
     const AlertIcon = alertConfig.icon;
@@ -700,6 +707,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                                                 );
                                             })
                                         )}
+                                        <div ref={chatEndRef} />
                                     </div>
                                     <div className="border-t border-border p-3">
                                         <div className="flex gap-2">

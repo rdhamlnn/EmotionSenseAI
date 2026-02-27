@@ -7,7 +7,7 @@ export default function NotFound() {
             <h1 className="text-6xl font-bold text-foreground">404</h1>
             <p className="text-lg text-muted-foreground">Halaman tidak ditemukan</p>
             <Button asChild>
-                <Link href="/">Kembali ke Beranda</Link>
+                <Link href="/beranda">Kembali ke Beranda</Link>
             </Button>
         </div>
     );

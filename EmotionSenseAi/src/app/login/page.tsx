@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrainCircuit, Loader2, Eye, EyeOff } from "lucide-react";
-import { login, register } from "@/lib/auth";
+import { login, register, getCurrentUser } from "@/lib/auth";
 import type { JenisKelamin, UserRole } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -23,6 +23,14 @@ export default function LoginPage() {
     const [usia, setUsia] = useState("");
     const [jenisKelamin, setJenisKelamin] = useState<JenisKelamin>("laki-laki");
     const [role, setRole] = useState<UserRole>("siswa");
+
+    // Redirect if already logged in
+    useEffect(() => {
+        const user = getCurrentUser();
+        if (user) {
+            router.replace(user.role === "pembimbing" ? "/pembimbing" : "/dashboard");
+        }
+    }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,6 +53,11 @@ export default function LoginPage() {
                 }
                 if (!usia || parseInt(usia) < 1) {
                     toast.error("Usia harus diisi dengan benar");
+                    setLoading(false);
+                    return;
+                }
+                if (password.length < 6) {
+                    toast.error("Password minimal 6 karakter");
                     setLoading(false);
                     return;
                 }

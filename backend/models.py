@@ -11,6 +11,7 @@ from sqlalchemy import (
     JSON,
     DateTime,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -45,10 +46,13 @@ class User(Base):
 # ==================== Student-Counselor ====================
 class StudentCounselor(Base):
     __tablename__ = "student_counselor"
+    __table_args__ = (
+        UniqueConstraint("siswa_id", "pembimbing_id", name="uq_siswa_pembimbing"),
+    )
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    siswa_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    pembimbing_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    siswa_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    pembimbing_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     assigned_at = Column(DateTime(timezone=True), default=_utcnow)
 
 

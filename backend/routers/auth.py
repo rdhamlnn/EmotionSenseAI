@@ -1,5 +1,7 @@
 """Auth router: register, login, me."""
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 def _user_response(user: User) -> UserResponse:
     return UserResponse(
-        id=user.id,
+        id=str(user.id),
         email=user.email,
         nama=user.nama,
         role=user.role,
@@ -31,17 +33,12 @@ def _user_response(user: User) -> UserResponse:
 @router.post("/register", response_model=AuthResponse)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     # Validate email format
-    import re
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', req.email):
         raise HTTPException(status_code=422, detail="Format email tidak valid")
 
     # Validate password length
     if len(req.password) < 6:
         raise HTTPException(status_code=422, detail="Password minimal 6 karakter")
-
-    # Validate role
-    if req.role not in ("siswa", "pembimbing"):
-        raise HTTPException(status_code=422, detail="Role harus 'siswa' atau 'pembimbing'")
 
     existing = db.query(User).filter(User.email == req.email).first()
     if existing:
@@ -93,11 +90,18 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=AuthResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
+
+    # Generic message to prevent user enumeration
+    credentials_error = HTTPException(status_code=401, detail="Email atau password salah")
+
     if not user:
-        raise HTTPException(status_code=401, detail="Email tidak ditemukan")
+        raise credentials_error
+
+    if not user.hashed_password:
+        raise credentials_error
 
     if not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Password salah")
+        raise credentials_error
 
     token = create_access_token({"sub": user.id})
     return AuthResponse(

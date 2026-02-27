@@ -27,10 +27,10 @@ def _resolve_database_url(ref: str, password: str) -> str:
 
 
 class Settings(BaseSettings):
-    # Secrets — loaded from .env
-    SUPABASE_REF: str = "fbyayoiuyxargjmkipuo"
-    SUPABASE_PASSWORD: str = "#TugasAkhir15"
-    SECRET_KEY: str = "emotionsense-secret-key-change-in-production-2026"
+    # Secrets — MUST be loaded from .env (no defaults for security)
+    SUPABASE_REF: str = ""
+    SUPABASE_PASSWORD: str = ""
+    SECRET_KEY: str = ""
 
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
@@ -65,6 +65,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Fail-fast: ensure critical secrets are set
+if not settings.SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY not set. Create a backend/.env file with:\n"
+        "  SECRET_KEY=your-secret-key\n"
+        "  SUPABASE_REF=your-ref\n"
+        "  SUPABASE_PASSWORD=your-password"
+    )
 
 # Resolve DATABASE_URL from Supabase credentials (with SQLite fallback)
 if not settings.DATABASE_URL:

@@ -50,20 +50,31 @@ def get_diary_entries(
     if current_user.role == "siswa":
         # Siswa can only see their own entries
         query = query.filter(DiaryEntry.user_id == current_user.id)
-    elif userId:
-        # Pembimbing requesting specific student — verify assignment
+    else:
+        # Pembimbing: only return entries from assigned students
         from models import StudentCounselor
-        is_assigned = (
-            db.query(StudentCounselor)
-            .filter(
-                StudentCounselor.pembimbing_id == current_user.id,
-                StudentCounselor.siswa_id == userId,
+        if userId:
+            # Specific student — verify assignment
+            is_assigned = (
+                db.query(StudentCounselor)
+                .filter(
+                    StudentCounselor.pembimbing_id == current_user.id,
+                    StudentCounselor.siswa_id == userId,
+                )
+                .first()
             )
-            .first()
-        )
-        if not is_assigned:
-            raise HTTPException(status_code=403, detail="Siswa ini tidak ditugaskan kepada Anda")
-        query = query.filter(DiaryEntry.user_id == userId)
+            if not is_assigned:
+                raise HTTPException(status_code=403, detail="Siswa ini tidak ditugaskan kepada Anda")
+            query = query.filter(DiaryEntry.user_id == userId)
+        else:
+            # No userId — only show assigned students' entries
+            assigned_ids = [
+                row[0]
+                for row in db.query(StudentCounselor.siswa_id)
+                .filter(StudentCounselor.pembimbing_id == current_user.id)
+                .all()
+            ]
+            query = query.filter(DiaryEntry.user_id.in_(assigned_ids))
 
     entries = query.order_by(DiaryEntry.created_at.desc()).offset(offset).limit(limit).all()
     return [_diary_response(e) for e in entries]
@@ -79,7 +90,10 @@ def create_diary_entry(
     diary_id = generate_uuid()
 
     # Classify emotion
-    result = classifier.classify(req.teks)
+    try:
+        result = classifier.classify(req.teks)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengklasifikasi emosi: {str(e)}")
 
     # Save diary entry
     entry = DiaryEntry(

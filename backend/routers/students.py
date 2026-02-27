@@ -151,7 +151,7 @@ def _build_siswa_status(db: Session, user: User) -> SiswaStatusResponse:
 @router.get("/all-siswa", response_model=List[UserResponse])
 def get_all_siswa(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("pembimbing")),
 ):
     siswa_list = db.query(User).filter(User.role == "siswa").all()
     return [_user_response(s) for s in siswa_list]
@@ -175,9 +175,11 @@ def get_siswa_for_pembimbing(
 @router.get("/assignments", response_model=List[StudentCounselorResponse])
 def get_assignments(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("pembimbing")),
 ):
-    scs = db.query(StudentCounselor).all()
+    scs = db.query(StudentCounselor).filter(
+        StudentCounselor.pembimbing_id == current_user.id
+    ).all()
     return [
         StudentCounselorResponse(
             id=sc.id,
@@ -242,19 +244,16 @@ def get_siswa_status(
 @router.get("/critical", response_model=List[SiswaStatusResponse])
 def get_critical_siswa(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("pembimbing")),
 ):
-    # Get siswa assigned to this pembimbing
-    if current_user.role == "pembimbing":
-        assigned_ids = (
-            db.query(StudentCounselor.siswa_id)
-            .filter(StudentCounselor.pembimbing_id == current_user.id)
-            .all()
-        )
-        ids = [a[0] for a in assigned_ids]
-        siswa_list = db.query(User).filter(User.id.in_(ids), User.role == "siswa").all()
-    else:
-        siswa_list = db.query(User).filter(User.role == "siswa").all()
+    # Get siswa assigned to this pembimbing only
+    assigned_ids = (
+        db.query(StudentCounselor.siswa_id)
+        .filter(StudentCounselor.pembimbing_id == current_user.id)
+        .all()
+    )
+    ids = [a[0] for a in assigned_ids]
+    siswa_list = db.query(User).filter(User.id.in_(ids), User.role == "siswa").all()
 
     statuses = [_build_siswa_status(db, s) for s in siswa_list]
     return [s for s in statuses if s.alertLevel != "safe"]

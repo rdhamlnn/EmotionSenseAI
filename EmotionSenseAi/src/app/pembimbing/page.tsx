@@ -10,25 +10,18 @@ import {
 } from "@/components/ui/table";
 import {
     Users, AlertTriangle, ShieldCheck, ShieldAlert,
-    Eye, Brain,
+    Eye, Brain, Loader2,
 } from "lucide-react";
 import { getCurrentUser, getSiswaForPembimbing } from "@/lib/auth";
 import { getSiswaStatus } from "@/lib/mock-data";
 import type { User, SiswaStatus, AlertLevel } from "@/lib/types";
+import { formatDateOnly as formatDate } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
 const ALERT_CONFIG: Record<AlertLevel, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
     safe: { label: "Aman", color: "text-emerald-700", bgColor: "bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400", icon: ShieldCheck },
     warning: { label: "Perlu Perhatian", color: "text-amber-700", bgColor: "bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400", icon: AlertTriangle },
     critical: { label: "Kritis", color: "text-red-700", bgColor: "bg-red-100 dark:bg-red-900/30 dark:text-red-400", icon: ShieldAlert },
-};
-
-const formatDate = (iso: string) => {
-    if (!iso) return "-";
-    const d = new Date(iso);
-    return d.toLocaleDateString("id-ID", {
-        day: "2-digit", month: "short", year: "numeric",
-    });
 };
 
 export default function PembimbingDashboard() {
@@ -54,7 +47,11 @@ export default function PembimbingDashboard() {
         loadData();
     }, [router]);
 
-    if (!user) return null;
+    if (!user) return (
+        <div className="flex min-h-[60vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
 
     const safeCount = siswaStatuses.filter((p) => p.alertLevel === "safe").length;
     const warningCount = siswaStatuses.filter((p) => p.alertLevel === "warning").length;

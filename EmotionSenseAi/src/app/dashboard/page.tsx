@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,16 +27,8 @@ import {
     type FilterPeriod,
 } from "@/lib/mock-data";
 import type { User, DiaryEntry, Message, AlertLevel } from "@/lib/types";
+import { EMOTION_COLORS, BADGE_COLORS, formatDate } from "@/lib/constants";
 import { toast } from "sonner";
-import { Asta_Sans } from "next/font/google";
-
-const EMOTION_COLORS: Record<string, string> = {
-    Happy: "hsl(175, 45%, 40%)",
-    Sad: "hsl(220, 60%, 45%)",
-    Angry: "hsl(0, 65%, 55%)",
-    Fear: "hsl(280, 40%, 50%)",
-    Neutral: "hsl(220, 15%, 55%)",
-};
 
 const EMOTION_ICONS: Record<string, React.ElementType> = {
     Happy: Smile,
@@ -54,14 +46,6 @@ const EMOTION_LABELS_ID: Record<string, string> = {
     Neutral: "Netral",
 };
 
-const BADGE_COLORS: Record<string, string> = {
-    Happy: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    Sad: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    Angry: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    Fear: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-    Neutral: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
-};
-
 const CARD_BG_COLORS: Record<string, string> = {
     Happy: "bg-emerald-50 dark:bg-emerald-900/10",
     Sad: "bg-blue-50 dark:bg-blue-900/10",
@@ -76,19 +60,6 @@ const tabs = [
     { id: "tren", label: "Tren Emosi", icon: TrendingUp },
     { id: "pesan", label: "Pesan", icon: MessageSquare },
 ];
-
-const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("id-ID", {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-    });
-};
-
-const formatDateShort = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
-};
 
 export default function PatientDashboard() {
     const router = useRouter();
@@ -105,6 +76,7 @@ export default function PatientDashboard() {
     // Message form
     const [msgText, setMsgText] = useState("");
     const [sendingMsg, setSendingMsg] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     // Trend filter
     const [trendPeriod, setTrendPeriod] = useState<FilterPeriod>("weekly");
@@ -207,12 +179,20 @@ export default function PatientDashboard() {
 
     const [unreadCount, setUnreadCount] = useState(0);
     useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    useEffect(() => {
         if (user) {
             getUnreadMessageCount(user.id, "siswa").then(setUnreadCount);
         }
     }, [user, messages]);
 
-    if (!user) return null;
+    if (!user) return (
+        <div className="flex min-h-[60vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
 
     // Overview stats
     const weekEntries = filterEntriesByPeriod(entries, "weekly");
@@ -822,6 +802,7 @@ export default function PatientDashboard() {
                                         );
                                     })
                                 )}
+                                <div ref={chatEndRef} />
                             </div>
 
                             {/* Input area */}

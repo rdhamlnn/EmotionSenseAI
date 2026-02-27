@@ -39,4 +39,5 @@ def get_db():
 def init_db():
     """Create all tables."""
     Base.metadata.create_all(bind=engine)
-    print(f"[INFO] Database tables created. URL: {settings.DATABASE_URL[:50]}...")
+    db_type = "SQLite" if _is_sqlite else "PostgreSQL"
+    print(f"[INFO] Database tables created. Type: {db_type}")

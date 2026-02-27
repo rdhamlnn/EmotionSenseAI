@@ -1,7 +1,10 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Annotated, List, Literal, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, BeforeValidator, Field
+
+# Accepts str or UUID, always coerces to str
+StrId = Annotated[str, BeforeValidator(lambda v: str(v))]
 
 
 # ==================== Auth ====================
@@ -9,9 +12,9 @@ class RegisterRequest(BaseModel):
     email: str
     nama: str
     password: str
-    role: str  # "siswa" | "pembimbing"
-    usia: int
-    jenisKelamin: str  # "laki-laki" | "perempuan"
+    role: Literal["siswa", "pembimbing"]
+    usia: int = Field(ge=5, le=100)
+    jenisKelamin: Literal["laki-laki", "perempuan"]
 
 
 class LoginRequest(BaseModel):
@@ -25,7 +28,7 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: StrId
     email: str
     nama: str
     role: str
@@ -52,8 +55,8 @@ class EmotionProbabilitySchema(BaseModel):
 
 
 class EmotionResultResponse(BaseModel):
-    id: str
-    diaryEntryId: str
+    id: StrId
+    diaryEntryId: StrId
     label: str
     confidence: float
     probabilities: List[EmotionProbabilitySchema]
@@ -66,12 +69,12 @@ class EmotionResultResponse(BaseModel):
 
 # ==================== Diary ====================
 class DiaryCreateRequest(BaseModel):
-    teks: str
+    teks: str = Field(min_length=1, max_length=5000)
 
 
 class DiaryEntryResponse(BaseModel):
-    id: str
-    userId: str
+    id: StrId
+    userId: StrId
     teks: str
     createdAt: str
     emotionResult: EmotionResultResponse
@@ -87,9 +90,9 @@ class NoteCreateRequest(BaseModel):
 
 
 class NoteResponse(BaseModel):
-    id: str
-    pembimbingId: str
-    siswaId: str
+    id: StrId
+    pembimbingId: StrId
+    siswaId: StrId
     note: str
     createdAt: str
 
@@ -104,10 +107,10 @@ class MessageCreateRequest(BaseModel):
 
 
 class MessageResponse(BaseModel):
-    id: str
-    senderId: str
+    id: StrId
+    senderId: StrId
     senderRole: str
-    siswaId: str
+    siswaId: StrId
     message: str
     isRead: bool
     createdAt: str
@@ -122,9 +125,9 @@ class MarkReadRequest(BaseModel):
 
 # ==================== Student-Counselor ====================
 class StudentCounselorResponse(BaseModel):
-    id: str
-    siswaId: str
-    pembimbingId: str
+    id: StrId
+    siswaId: StrId
+    pembimbingId: StrId
     assignedAt: str
 
     class Config:
@@ -138,7 +141,7 @@ class AssignRequest(BaseModel):
 
 # ==================== Alert ====================
 class SiswaStatusResponse(BaseModel):
-    siswaId: str
+    siswaId: StrId
     siswaName: str
     siswaEmail: str
     siswaUsia: int

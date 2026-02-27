@@ -2,7 +2,7 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -27,8 +27,21 @@ def _note_response(n: PembimbingNote) -> NoteResponse:
 def get_notes(
     siswaId: str = Query(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("pembimbing")),
 ):
+    # Verify pembimbing is assigned to this student
+    from models import StudentCounselor
+    is_assigned = (
+        db.query(StudentCounselor)
+        .filter(
+            StudentCounselor.pembimbing_id == current_user.id,
+            StudentCounselor.siswa_id == siswaId,
+        )
+        .first()
+    )
+    if not is_assigned:
+        raise HTTPException(status_code=403, detail="Siswa ini tidak ditugaskan kepada Anda")
+
     notes = (
         db.query(PembimbingNote)
         .filter(PembimbingNote.siswa_id == siswaId)
