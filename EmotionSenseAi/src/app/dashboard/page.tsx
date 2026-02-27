@@ -28,6 +28,7 @@ import {
 } from "@/lib/mock-data";
 import type { User, DiaryEntry, Message, AlertLevel } from "@/lib/types";
 import { toast } from "sonner";
+import { Asta_Sans } from "next/font/google";
 
 const EMOTION_COLORS: Record<string, string> = {
     Happy: "hsl(175, 45%, 40%)",

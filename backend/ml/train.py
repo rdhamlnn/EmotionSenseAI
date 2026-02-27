@@ -63,15 +63,31 @@ def train():
         print(f"[ERROR] Dataset not found: {dataset_path}")
         return
 
-    df = pd.read_csv(dataset_path, sep=",", on_bad_lines="skip", engine="python")
+    # The CSV uses ';;;' as the record terminator (text may contain commas and newlines).
+    # Parse manually: split by ';;;', then split each record on the FIRST comma.
+    with open(dataset_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    records = [r.strip() for r in content.split(";;;") if r.strip()]
+    # First record is the header row (e.g. "Label,Tweet")
+    header = records[0]
+    header_parts = header.split(",", 1)
+    label_col = header_parts[0].strip()
+    text_col = header_parts[1].strip() if len(header_parts) > 1 else "text"
+
+    rows = []
+    for rec in records[1:]:
+        rec = rec.strip().strip('"')
+        idx = rec.find(",")
+        if idx == -1:
+            continue
+        label = rec[:idx].strip().strip('"')
+        text = rec[idx + 1:].strip().strip('"')
+        if label and text:
+            rows.append({label_col: label, text_col: text})
+
+    df = pd.DataFrame(rows)
     print(f"[INFO] Loaded {len(df)} rows from dataset.")
-
-    # Detect column names
-    cols = df.columns.tolist()
-    # First column should be label, second should be text
-    label_col = cols[0]
-    text_col = cols[1] if len(cols) > 1 else cols[0]
-
     print(f"[INFO] Using columns: label='{label_col}', text='{text_col}'")
 
     # 2. Clean & map labels
