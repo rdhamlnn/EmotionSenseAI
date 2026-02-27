@@ -32,7 +32,7 @@ def get_messages(
     current_user: User = Depends(get_current_user),
 ):
     # Siswa can only read their own messages
-    if current_user.role == "siswa" and current_user.id != siswaId:
+    if current_user.role == "siswa" and str(current_user.id) != siswaId:
         raise HTTPException(status_code=403, detail="Tidak diizinkan membaca pesan siswa lain")
 
     # Pembimbing must be assigned to the student
@@ -65,7 +65,7 @@ def send_message(
     current_user: User = Depends(get_current_user),
 ):
     # Siswa can only send messages in their own thread
-    if current_user.role == "siswa" and current_user.id != req.siswaId:
+    if current_user.role == "siswa" and str(current_user.id) != req.siswaId:
         raise HTTPException(status_code=403, detail="Tidak diizinkan mengirim pesan atas nama siswa lain")
 
     # Pembimbing must be assigned to the student
