@@ -1,6 +1,9 @@
 """
 Emotion classifier using Naive Bayes + TF-IDF.
 5 classes: Happy, Sad, Angry, Fear, Neutral
+
+Explanation is generated via Groq API (Llama 3.3 70B) with
+static-template fallback when the API is unavailable.
 """
 
 import os
@@ -8,6 +11,7 @@ from typing import Dict, List
 
 import joblib
 import numpy as np
+from openai import OpenAI
 
 from config import settings
 from ml.preprocessor import preprocessor
@@ -26,7 +30,24 @@ EMOTION_LABELS_ID: Dict[str, str] = {
 class EmotionClassifier:
     def __init__(self):
         self.pipeline = None
+        self.groq_client = None
         self._load_model()
+        self._init_groq()
+
+    def _init_groq(self):
+        """Initialize Groq client if API key is configured."""
+        if settings.GROQ_API_KEY:
+            try:
+                self.groq_client = OpenAI(
+                    api_key=settings.GROQ_API_KEY,
+                    base_url="https://api.groq.com/openai/v1",
+                )
+                print("[INFO] Groq client initialized successfully")
+            except Exception as e:
+                print(f"[WARNING] Failed to initialize Groq client: {e}")
+                self.groq_client = None
+        else:
+            print("[INFO] GROQ_API_KEY not set — using static template for explanations")
 
     def _load_model(self):
         path = settings.MODEL_PATH
@@ -71,7 +92,7 @@ class EmotionClassifier:
         label = str(best["emotion"])
         confidence = float(best["probability"])
 
-        ai_explanation = self._generate_explanation(text, label, confidence, probabilities)
+        ai_explanation = self._get_explanation(text, label, confidence, probabilities)
 
         return {
             "label": label,
@@ -103,12 +124,88 @@ class EmotionClassifier:
             "label": label,
             "confidence": confidence,
             "probabilities": probabilities,
-            "aiExplanation": self._generate_explanation(text, label, confidence, probabilities),
+            "aiExplanation": self._get_explanation(text, label, confidence, probabilities),
         }
 
     # ------------------------------------------------------------------
+    def _get_explanation(
+        self,
+        text: str,
+        label: str,
+        confidence: float,
+        probabilities: List[Dict],
+    ) -> str:
+        """
+        Try Groq API first for a contextual, natural explanation.
+        Falls back to the static template if Groq is unavailable.
+        """
+        if self.groq_client:
+            try:
+                return self._generate_groq_explanation(text, label, confidence, probabilities)
+            except Exception as e:
+                print(f"[WARNING] Groq API failed, using template fallback: {e}")
+        return self._generate_template_explanation(text, label, confidence, probabilities)
+
+    # ------------------------------------------------------------------
+    def _generate_groq_explanation(
+        self,
+        text: str,
+        label: str,
+        confidence: float,
+        probabilities: List[Dict],
+    ) -> str:
+        """Generate a contextual explanation using Groq (Llama 3.3 70B)."""
+        label_id = EMOTION_LABELS_ID.get(label, label)
+        sorted_probs = sorted(probabilities, key=lambda x: x["probability"], reverse=True)
+        probs_text = ", ".join(
+            f"{p['emotion']} ({EMOTION_LABELS_ID.get(p['emotion'], p['emotion'])}): {p['probability']:.2f}%"
+            for p in sorted_probs
+        )
+
+        system_prompt = (
+            "Kamu adalah asisten konseling sekolah yang ahli dalam psikologi remaja. "
+            "Tugasmu adalah menjelaskan hasil klasifikasi emosi dari diary siswa "
+            "menggunakan bahasa Indonesia yang empatik, mudah dipahami siswa SMA, dan supportif. "
+            "Jangan menyebutkan istilah teknis seperti 'Naive Bayes', 'TF-IDF', atau 'machine learning'. "
+            "Fokus pada isi tulisan siswa dan berikan saran yang relevan."
+        )
+
+        user_prompt = (
+            f"Berikut hasil analisis emosi dari diary seorang siswa:\n\n"
+            f"Teks diary: \"{text}\"\n\n"
+            f"Emosi terdeteksi: {label} ({label_id}) dengan tingkat kepercayaan {confidence:.1f}%\n"
+            f"Distribusi probabilitas: {probs_text}\n\n"
+            f"Buatkan penjelasan dengan format berikut:\n"
+            f"1. Paragraf pertama: Jelaskan emosi apa yang terdeteksi dan mengapa (berdasarkan kata/konteks dalam teks)\n"
+            f"2. Paragraf kedua: Interpretasi kondisi emosional siswa\n"
+            f"3. Paragraf ketiga: Saran supportif yang spesifik dan relevan dengan isi diary\n\n"
+            f"Gunakan emoji yang sesuai. Maksimal 200 kata. Nada empatik dan hangat."
+        )
+
+        response = self.groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=500,
+            temperature=0.7,
+        )
+
+        groq_text = response.choices[0].message.content.strip()
+
+        # Prepend classification stats
+        header = (
+            f"📊 **Hasil Analisis Emosi**\n\n"
+            f"Emosi terdeteksi: **{label} ({label_id})** — Kepercayaan: **{confidence:.2f}%**\n"
+            f"📈 Distribusi: {probs_text}\n\n"
+            f"---\n\n"
+        )
+        return header + groq_text
+
+    # ------------------------------------------------------------------
     @staticmethod
-    def _generate_explanation(
+    def _generate_template_explanation(
         text: str,
         label: str,
         confidence: float,

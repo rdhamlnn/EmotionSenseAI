@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
 
+    # Groq API (for AI explanation)
+    GROQ_API_KEY: str = ""
+
     # Database URL — resolved after instantiation
     DATABASE_URL: str = ""
 

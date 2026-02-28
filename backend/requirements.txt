@@ -13,3 +13,4 @@ numpy==1.26.4
 bcrypt==4.0.1
 psycopg2-binary==2.9.9
 PySastrawi==1.2.0
+openai>=1.0.0
