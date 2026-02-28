@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout } from "@/lib/auth";
+import { toast } from "sonner";
 import { getUnreadMessageCount, getCriticalSiswa } from "@/lib/mock-data";
 import type { User, SiswaStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ const Navbar = () => {
     const handleLogout = () => {
         logout();
         setUser(null);
+        toast.success("Berhasil logout!");
         router.push("/login");
     };
 

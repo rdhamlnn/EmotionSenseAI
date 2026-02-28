@@ -11,7 +11,7 @@ const Footer = () => (
                 Sistem Klasifikasi Emosi Buku Harian Digital Berbasis Web
             </p>
             <p className="text-xs text-muted-foreground">
-                Tugas Akhir — Metode Naive Bayes Classifier
+                Copyright @2026
             </p>
         </div>
     </footer>
