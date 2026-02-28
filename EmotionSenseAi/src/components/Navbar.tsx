@@ -17,12 +17,12 @@ const publicNavItems = [
 
 const siswaNavItems = [
     { label: "Dashboard", path: "/dashboard" },
-    { label: "Evaluasi Model", path: "/evaluasi" },
+    // { label: "Evaluasi Model", path: "/evaluasi" }, // Hanya untuk guest
 ];
 
 const pembimbingNavItems = [
     { label: "Dashboard", path: "/pembimbing" },
-    { label: "Evaluasi Model", path: "/evaluasi" },
+    // { label: "Evaluasi Model", path: "/evaluasi" }, // Hanya untuk guest
 ];
 
 const Navbar = () => {

@@ -24,6 +24,14 @@ export default function LoginPage() {
     const [jenisKelamin, setJenisKelamin] = useState<JenisKelamin>("laki-laki");
     const [role, setRole] = useState<UserRole>("siswa");
 
+    // State untuk kontrol visibilitas demo akun (client only)
+    const [showDemo, setShowDemo] = useState(false);
+
+    useEffect(() => {
+        const user = getCurrentUser();
+        setShowDemo(!user);
+    }, []);
+
     // Redirect if already logged in
     useEffect(() => {
         const user = getCurrentUser();
@@ -239,22 +247,6 @@ export default function LoginPage() {
                             )}
                         </p>
 
-                        {/* Demo credentials */}
-                        <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/30 p-3">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Demo Akun
-                            </p>
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                                <p>
-                                    <span className="font-medium text-foreground">Siswa:</span>{" "}
-                                    siswa@demo.com / demo123
-                                </p>
-                                <p>
-                                    <span className="font-medium text-foreground">Pembimbing:</span>{" "}
-                                    pembimbing@demo.com / demo123
-                                </p>
-                            </div>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
