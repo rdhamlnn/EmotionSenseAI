@@ -21,8 +21,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [nama, setNama] = useState("");
     const [usia, setUsia] = useState("");
-    const [jenisKelamin, setJenisKelamin] = useState<JenisKelamin>("laki-laki");
-    const [role, setRole] = useState<UserRole>("siswa");
+    const [jenisKelamin, setJenisKelamin] = useState<JenisKelamin | "">("");
 
     // State untuk kontrol visibilitas demo akun (client only)
     const [showDemo, setShowDemo] = useState(false);
@@ -69,7 +68,7 @@ export default function LoginPage() {
                     setLoading(false);
                     return;
                 }
-                const result = await register(email, nama, password, role, parseInt(usia), jenisKelamin);
+                const result = await register(email, nama, password, "siswa", parseInt(usia), jenisKelamin);
                 if (result.success && result.user) {
                     toast.success("Registrasi berhasil!");
                     router.push(result.user.role === "pembimbing" ? "/pembimbing" : "/dashboard");
@@ -141,7 +140,9 @@ export default function LoginPage() {
                                             value={jenisKelamin}
                                             onChange={(e) => setJenisKelamin(e.target.value as JenisKelamin)}
                                             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            required
                                         >
+                                            <option value="" disabled hidden>Pilih jenis kelamin</option>
                                             <option value="laki-laki">Laki-laki</option>
                                             <option value="perempuan">Perempuan</option>
                                         </select>
@@ -149,20 +150,7 @@ export default function LoginPage() {
                                 </div>
                             )}
 
-                            {!isLogin && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="role">Daftar Sebagai</Label>
-                                    <select
-                                        id="role"
-                                        value={role}
-                                        onChange={(e) => setRole(e.target.value as UserRole)}
-                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    >
-                                        <option value="siswa">Siswa</option>
-                                        <option value="pembimbing">Pembimbing Konseling</option>
-                                    </select>
-                                </div>
-                            )}
+
 
                             <div className="space-y-2">
                                 <Label htmlFor="email">Email</Label>

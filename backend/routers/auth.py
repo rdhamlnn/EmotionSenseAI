@@ -32,6 +32,7 @@ def _user_response(user: User) -> UserResponse:
 
 @router.post("/register", response_model=AuthResponse)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
+
     # Validate email format
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', req.email):
         raise HTTPException(status_code=422, detail="Format email tidak valid")
@@ -39,6 +40,10 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     # Validate password length
     if len(req.password) < 6:
         raise HTTPException(status_code=422, detail="Password minimal 6 karakter")
+
+    # Only allow siswa registration from public endpoint
+    if req.role != "siswa":
+        raise HTTPException(status_code=403, detail="Hanya siswa yang dapat mendaftar melalui form ini")
 
     existing = db.query(User).filter(User.email == req.email).first()
     if existing:
