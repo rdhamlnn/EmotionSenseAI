@@ -1,10 +1,12 @@
 """
 Text preprocessor for Indonesian emotion classification.
 Handles:
-- Lowercasing
+- Lowercasing (case folding)
+- URL, mention, and hashtag removal
 - Abbreviation expansion (kamus_singkatan.csv)
+- Letter repetition normalization (e.g. "senaangggg" → "senang")
 - Punctuation / number removal
-- Stopword removal (Indonesian)
+- Stopword removal (Indonesian, with negation preservation)
 - Stemming (Sastrawi)
 - Extra whitespace normalization
 """
@@ -17,7 +19,15 @@ from typing import Dict, Set
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from config import settings
 
-# Indonesian stopwords — common function words that carry little emotion signal
+# Negation words — preserved during stopword removal because they
+# carry critical sentiment-flipping signal (e.g. "tidak senang" ≠ "senang")
+NEGATION_WORDS: Set[str] = {
+    "tidak", "bukan", "jangan", "belum", "tanpa", "tak", "tiada", "kurang",
+}
+
+# Indonesian stopwords — NLTK indonesian list with negation words REMOVED,
+# plus extra social-media noise tokens.
+# fmt: off
 INDONESIAN_STOPWORDS: Set[str] = {
     "ada", "adalah", "adanya", "adapun", "agak", "agaknya", "agar", "akan",
     "akankah", "akhir", "akhirnya", "aku", "akulah", "amat", "amatlah",
@@ -28,7 +38,7 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "bagian", "bahkan", "bahwa", "bahwasanya", "baik", "bakal", "bakalan",
     "balik", "banyak", "bapak", "baru", "bawah", "beberapa", "begini",
     "beginian", "beginikah", "beginilah", "begitu", "begitukah", "begitulah",
-    "begitupun", "belakang", "belakangan", "belum", "belumlah", "benar",
+    "begitupun", "belakang", "belakangan", "belumlah", "benar",
     "benarkah", "benarlah", "berada", "berakhir", "berakhirlah",
     "berakhirnya", "berapa", "berapakah", "berapalah", "berapapun",
     "berarti", "berawal", "berbagai", "berdatangan", "beri", "berikan",
@@ -37,7 +47,7 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "berlebihan", "bermacam", "bermaksud", "bermula", "bersama", "bersiap",
     "bertanya", "berturut", "bertutur", "berupa", "besar", "betul",
     "betulkah", "biasa", "biasanya", "bila", "bilakah", "bisa", "bisakah",
-    "boleh", "bolehkah", "bolehlah", "buat", "bukan", "bukankah",
+    "boleh", "bolehkah", "bolehlah", "buat", "bukankah",
     "bukanlah", "bukannya", "bulan", "bung", "cara", "caranya", "cukup",
     "cukupkah", "cukuplah", "cuma", "dahulu", "dalam", "dan", "dapat",
     "dari", "daripada", "datang", "dekat", "demi", "demikian", "demikianlah",
@@ -62,7 +72,7 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "harus", "haruslah", "harusnya", "hendak", "hendaklah", "hendaknya",
     "hingga", "ia", "ialah", "ibarat", "ibaratkan", "ibaratnya", "ibu",
     "ikut", "ingat", "ini", "inikah", "inilah", "itu", "itukah",
-    "itulah", "jadi", "jadilah", "jadinya", "jangan", "jangankan",
+    "itulah", "jadi", "jadilah", "jadinya", "jangankan",
     "janganlah", "jauh", "jawab", "jawaban", "jawabnya", "jelas",
     "jelaskan", "jelaslah", "jelasnya", "jika", "jikalau", "juga",
     "jumlah", "jumlahnya", "justru", "kala", "kalau", "kalaulah",
@@ -74,7 +84,7 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "kemungkinan", "kemungkinannya", "kenapa", "kepada", "kepadanya",
     "kesampaian", "keseluruhan", "keseluruhannya", "keterlaluan", "ketika",
     "khususnya", "kini", "kinilah", "kira", "kiranya", "kita", "kitalah",
-    "kok", "kurang", "lagi", "lagian", "lah", "lain", "lainnya",
+    "kok", "lagi", "lagian", "lah", "lain", "lainnya",
     "lalu", "lama", "lamanya", "langsung", "lanjut", "lanjutnya",
     "lebih", "leh", "lima", "luar", "macam", "maka", "makanya",
     "makin", "malah", "malahan", "mampu", "mampukah", "mana", "manakala",
@@ -130,8 +140,8 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "setidaknya", "setinggi", "seusai", "sewaktu", "siap", "siapa",
     "siapakah", "siapapun", "sini", "sinilah", "soal", "soalnya",
     "suatu", "sudah", "sudahkah", "sudahlah", "supaya", "tadi",
-    "tadinya", "tahu", "tahun", "tak", "tambah", "tambahnya", "tampak",
-    "tampaknya", "tandas", "tandasnya", "tanpa", "tanya", "tanyakan",
+    "tadinya", "tahu", "tahun", "tambah", "tambahnya", "tampak",
+    "tampaknya", "tandas", "tandasnya", "tanya", "tanyakan",
     "tanyanya", "tapi", "tenang", "tentang", "tentu", "tentulah",
     "tentunya", "tepat", "terakhir", "terasa", "terbanyak", "terdahulu",
     "terdapat", "terdiri", "terhadap", "terhadapnya", "teringat",
@@ -144,7 +154,17 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "ungkap", "ungkapnya", "untuk", "usah", "usai", "waduh", "wah",
     "wahai", "waktu", "walaupun", "wong", "yaitu", "yakin", "yakni",
     "yang",
+    # Extra social-media noise tokens
+    "yg", "nya", "dg", "aja", "aj", "nih", "sih",
+    "deh", "loh", "tuh", "kalo", "kl",
+    "sm", "jg", "ya", "yaa",
+    "wkwk", "wkwkwk", "wkwkwkwk", "haha", "hehe", "hihi",
+    "lol", "username", "url", "rt", "amp",
 }
+# fmt: on
+
+# Safety: ensure negation words are never in the stopword set
+INDONESIAN_STOPWORDS -= NEGATION_WORDS
 
 
 class TextPreprocessor:
@@ -174,6 +194,7 @@ class TextPreprocessor:
         text = self._remove_urls(text)
         text = self._remove_mentions_hashtags(text)
         text = self._expand_abbreviations(text)
+        text = self._normalize_letter_repetition(text)
         text = self._remove_punctuation(text)
         text = self._remove_numbers(text)
         text = self._remove_stopwords(text)
@@ -197,6 +218,11 @@ class TextPreprocessor:
         return " ".join(expanded)
 
     @staticmethod
+    def _normalize_letter_repetition(text: str) -> str:
+        """Collapse repeated characters: 'senaangggg' → 'senang'."""
+        return re.sub(r"(.)\1{2,}", r"\1", text)
+
+    @staticmethod
     def _remove_punctuation(text: str) -> str:
         return re.sub(r"[^\w\s]", " ", text)
 
@@ -207,7 +233,7 @@ class TextPreprocessor:
     @staticmethod
     def _remove_stopwords(text: str) -> str:
         words = text.split()
-        filtered = [w for w in words if w not in INDONESIAN_STOPWORDS]
+        filtered = [w for w in words if w not in INDONESIAN_STOPWORDS and len(w) > 1]
         return " ".join(filtered)
 
     def _stem(self, text: str) -> str:

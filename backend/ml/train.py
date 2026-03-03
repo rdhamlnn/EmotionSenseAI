@@ -112,10 +112,16 @@ def train():
     )
     print(f"[INFO] Train: {len(X_train)}, Test: {len(X_test)}")
 
-    # 5. Build pipeline
+    # 5. Build pipeline (parameters aligned with notebook experiments)
     pipeline = Pipeline([
-        ("tfidf", TfidfVectorizer(max_features=10000, ngram_range=(1, 2))),
-        ("nb", MultinomialNB(alpha=0.1)),
+        ("tfidf", TfidfVectorizer(
+            max_features=15000,
+            ngram_range=(1, 2),
+            min_df=2,
+            max_df=0.95,
+            sublinear_tf=True,
+        )),
+        ("nb", MultinomialNB(alpha=0.5)),
     ])
 
     # 6. Train
