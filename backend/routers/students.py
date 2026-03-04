@@ -317,13 +317,34 @@ def get_self_alert(
         else:
             break
 
-    message = (
-        f"Kami mendeteksi emosi negatif yang konsisten selama {consecutive} hari berturut-turut. "
-        "Pembimbing Konseling Anda sudah diberitahu dan siap membantu. Jangan ragu untuk menceritakan perasaanmu."
-        if alert_level == "critical"
-        else f"Emosi negatif terdeteksi selama {consecutive} hari terakhir. "
-        "Ceritakan perasaanmu di diary — Pembimbing Konseling Anda siap memberikan dukungan."
+    # Calculate negative percentage for message
+    negative_count = sum(
+        1 for e in entries if e.emotion_result and e.emotion_result.label in NEGATIVE_EMOTIONS
     )
+    neg_pct = round((negative_count / len(entries)) * 100) if entries else 0
+
+    if alert_level == "critical":
+        if consecutive > 0:
+            message = (
+                f"Kami mendeteksi emosi negatif yang konsisten selama {consecutive} hari berturut-turut. "
+                "Pembimbing Konseling Anda sudah diberitahu dan siap membantu. Jangan ragu untuk menceritakan perasaanmu."
+            )
+        else:
+            message = (
+                f"Sebagian besar diary kamu ({neg_pct}%) menunjukkan emosi negatif. "
+                "Pembimbing Konseling Anda sudah diberitahu dan siap membantu. Jangan ragu untuk menceritakan perasaanmu."
+            )
+    else:
+        if consecutive > 0:
+            message = (
+                f"Emosi negatif terdeteksi selama {consecutive} hari terakhir. "
+                "Ceritakan perasaanmu di diary — Pembimbing Konseling Anda siap memberikan dukungan."
+            )
+        else:
+            message = (
+                f"Pola emosi negatif terdeteksi pada {neg_pct}% diary kamu. "
+                "Ceritakan perasaanmu di diary — Pembimbing Konseling Anda siap memberikan dukungan."
+            )
 
     return SelfAlertResponse(level=alert_level, message=message, consecutiveDays=consecutive)
 
