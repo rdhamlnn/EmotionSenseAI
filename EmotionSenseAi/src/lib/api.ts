@@ -43,7 +43,7 @@ async function apiFetch<T>(
         // Auto-logout on 401 (token expired / invalid)
         if (res.status === 401 && typeof window !== "undefined") {
             clearToken();
-            localStorage.removeItem("emotionsense_user");
+            localStorage.removeItem("emotionsense_session");
             window.location.href = "/login";
         }
         throw new Error(body.detail || `API Error ${res.status}`);
